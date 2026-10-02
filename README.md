@@ -7,7 +7,7 @@ Live at **https://jj-disaster.github.io/td-send/**
 
 ```
 phone browser ──wss://──▶ cloudflared ──▶ localhost:9001 ──▶ TouchDesigner
-      ▲                     (TLS here)      (websocket DAT, Server :9001)
+      ▲                     (TLS here)      (Web Server DAT :9001)
       └── index.html on GitHub Pages (https)
 ```
 
@@ -18,7 +18,8 @@ laptop running TD.
 ## Show day: GitHub Pages
 
 GitHub Pages is https-only, and browsers refuse to open a `ws://` connection from
-an https page. TouchDesigner's websocket DAT has no TLS, so something has to
+an https page. The Web Server DAT can do TLS but not with a certificate
+phones trust, so something has to
 terminate TLS in the middle. Cloudflare's free tunnel does it in one command:
 
 ```bash
