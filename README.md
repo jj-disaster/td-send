@@ -18,9 +18,9 @@ laptop running TD.
 ## Show day: GitHub Pages
 
 GitHub Pages is https-only, and browsers refuse to open a `ws://` connection from
-an https page. The Web Server DAT can do TLS but not with a certificate
-phones trust, so something has to
-terminate TLS in the middle. Cloudflare's free tunnel does it in one command:
+an https page. The Web Server DAT can do TLS, but not with a certificate phones
+trust, so something has to terminate TLS in the middle. Cloudflare's free tunnel
+does it in one command:
 
 ```bash
 cloudflared tunnel --url http://localhost:9001
