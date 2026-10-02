@@ -139,4 +139,5 @@ Clamp again inside TouchDesigner — never trust the client on stage.
 ## Files
 
 - `index.html` — UI + client. The whole thing.
+- `DESIGN.md` — design language for the page. Read before changing the UI.
 - `touchdesigner/callbacks.py` — paste into a Text DAT, point the Web Server DAT at it.
