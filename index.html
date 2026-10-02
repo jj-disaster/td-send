@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Send</title>
+<style>
+:root{color-scheme:dark;--bg:#0a0a0c;--fg:#f4f4f7;--dim:#83838f;--line:#24242c;--ok:#3ad98a;--err:#ff5470;--accent:#6c5cff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{margin:0;display:flex;flex-direction:column;gap:18px;align-items:center;justify-content:center;background:var(--bg);color:var(--fg);padding:24px;font:16px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+h1{margin:0;font-size:13px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+form{display:flex;gap:10px;width:100%;max-width:560px}
+input{flex:1;min-width:0;padding:18px 16px;border-radius:14px;border:1px solid var(--line);background:#131318;color:var(--fg);font:600 24px/1 ui-monospace,SFMono-Regular,Menlo,monospace}
+input::placeholder{color:#4c4c57;font-weight:400}
+input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+button{padding:18px 24px;border:0;border-radius:14px;background:var(--accent);color:#fff;font:700 16px/1 inherit;cursor:pointer}
+button:disabled{opacity:.45}
+button:active:not(:disabled){transform:scale(.97)}
+#pill{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim)}
+#dot{width:8px;height:8px;border-radius:50%;background:var(--err);transition:background .2s}
+#pill.up #dot{background:var(--ok)}
+#log{width:100%;max-width:560px;margin:0;padding:0;list-style:none;font:12px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dim);text-align:center}
+#log li{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#log b{color:var(--fg);font-weight:600}
+</style>
+</head>
+<body>
+<h1>Send to stage</h1>
+<form id="f" autocomplete="off">
+<input id="v" placeholder="type anything, or a number" inputmode="text" enterkeyhint="send" maxlength="120" required>
+<button id="send" type="submit">Send</button>
+</form>
+<div id="pill"><span id="dot"></span><span id="txt">connecting</span></div>
+<ul id="log"></ul>
+<script>
+(() => {
+  const q = new URLSearchParams(location.search);
+  const tunnel = q.get('wss');
+  const https = location.protocol === 'https:';
+  const scheme = tunnel || (https ? 'wss' : 'ws');
+  const host = tunnel || q.get('h') || location.hostname || '127.0.0.1';
+  const port = q.get('p') || (tunnel || https ? '443' : '9001');
+  const clamp = parseFloat(q.get('min') || '-1000');
+  const clampMax = parseFloat(q.get('max') || '1000');
+  const rate = parseFloat(q.get('rate') || '8');
+  const burst = parseInt(q.get('burst') || '3', 10);
+  const uid = Math.random().toString(36).slice(2, 7);
+
+  const pill = document.getElementById('pill');
+  const txt = document.getElementById('txt');
+  const log = document.getElementById('log');
+  const field = document.getElementById('v');
+  const btn = document.getElementById('send');
+
+  let ws, queue = [], tries = 0, tokens = burst, last = 0;
+
+  const show = (kind, value) => {
+    const li = document.createElement('li');
+    const tag = document.createElement('b');
+    tag.textContent = kind;
+    li.append(tag, document.createTextNode(' ' + value));
+    log.prepend(li);
+    while (log.children.length > 3) log.lastChild.remove();
+  };
+
+  const label = (kind, value) => {
+    if (kind === 'num') {
+      const n = Math.min(clampMax, Math.max(clamp, parseFloat(value)));
+      return 'num\t' + (Number.isFinite(n) ? n : 0);
+    }
+    return 'txt\t' + String(value).replace(/[\t\r\n]+/g, ' ').slice(0, 120);
+  };
+
+  function connect() {
+    try { ws = new WebSocket(scheme + '://' + host + ':' + port); }
+    catch (e) { retry(); return; }
+    ws.onopen = () => {
+      tries = 0;
+      pill.classList.add('up');
+      txt.textContent = 'live';
+      btn.disabled = false;
+      const pending = queue;
+      queue = [];
+      pending.forEach(write);
+    };
+    ws.onclose = retry;
+    ws.onerror = () => ws.close();
+  }
+
+  function retry() {
+    pill.classList.remove('up');
+    btn.disabled = true;
+    txt.textContent = https && !tunnel ? 'blocked: needs a wss tunnel' : 'reconnecting';
+    const wait = Math.min(5000, 250 * Math.pow(2, tries++));
+    setTimeout(connect, wait);
+  }
+
+  function write(line) {
+    if (ws.readyState === 1) ws.send(line + '\t' + uid);
+    else if (queue.length < 16) queue.push(line);
+  }
+
+  function send(raw) {
+    const now = performance.now();
+    tokens = Math.min(burst, tokens + ((now - last) / 1000) * rate);
+    last = now;
+    if (tokens < 1) return;
+    tokens -= 1;
+    const t = raw.trim();
+    if (!t) return;
+    const n = Number(t);
+    const isNum = /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t) && Number.isFinite(n);
+    const line = label(isNum ? 'num' : 'txt', t);
+    write(line);
+    show(isNum ? 'num' : 'txt', isNum ? Number(n).toFixed(3).replace(/\.?0+$/, '') || '0' : t);
+  }
+
+  document.getElementById('f').addEventListener('submit', (e) => {
+    e.preventDefault();
+    send(field.value);
+    field.value = '';
+    field.focus();
+  });
+
+  btn.disabled = true;
+  connect();
+})();
+</script>
+</body>
+</html>
