@@ -49,15 +49,49 @@ Works with the real TD directly, no cloudflared in the loop.
 
 ## TouchDesigner setup
 
-Add a `websocket` DAT (older TD: `webSockets`):
+Use the **Web Server DAT** — not the WebSocket DAT. The WebSocket DAT is a
+*client* only ("the network address of the server computer"), so it can never
+receive from a browser. The Web Server DAT is the one that listens.
 
-- Network → Address `0.0.0.0`, Port `9001`
-- Mode → **Server**
-- Allow the macOS firewall prompt.
+1. `Tab` → **DAT** → **Web Server**. Set:
+   - **Active** → on
+   - **Port** → `9001` (or share the page with `?p=9980` etc.)
+   - **Local Address** → leave blank to listen on all interfaces
+2. Create a **Text DAT** (e.g. `callbacks1`) and paste the contents of
+   [`touchdesigner/callbacks.py`](touchdesigner/callbacks.py) into it.
+3. Point the Web Server DAT's **Callbacks DAT** parameter at that Text DAT.
 
-The status pill under the input turns green when the connection to TD is live;
-on an https page with no tunnel it says `blocked: needs a wss tunnel` instead of
-spinning silently.
+The status pill turns green when the browser's connection lands. Every send then
+prints `recv: num 0.82 3f9a2` to TD's Python console, which is the fastest way
+to confirm the whole path works.
+
+There is no server/client mode switch to find: the Web Server DAT is always a
+server. That's also why an https page needs TLS somewhere in the middle — see
+the GitHub Pages section above.
+
+### Optional: wire it to visuals
+
+Create a CHOP (e.g. `in`) in **Channel** mode with channels `num`, `txt`, `uid`,
+and the callbacks will fill it in. `num` is clamped to ±1000 again inside TD, so
+a malicious client can't blow up your network. `txt` also lands in a Text DAT
+called `lastmsg` if you want the string on its own.
+
+Useful members on the Web Server DAT:
+
+- `webSocketConnections` — list of connected client addresses, e.g. `192.168.1.10:65432`
+- `webSocketSendText(client, data)` — send a string back to one phone
+- `webSocketClose(client)` — kick a client off
+
+An Info CHOP on the Web Server DAT gives you `server_running` and
+`websocket_connections` channels if you want to show connection count on stage.
+
+### HTTPS directly from TD
+
+The Web Server DAT has a **Secure (TLS)** page: turn it on and give it a private
+key and certificate, then connect with `wss://host:port`. The certificate has to
+be trusted by phones, so you need a real domain and a Let's Encrypt cert — a
+self-signed one will just produce a browser certificate error. For a show on
+untrusted wifi, the free Cloudflare tunnel is less setup.
 
 ## Wire protocol
 
@@ -70,35 +104,6 @@ txt\thello world\t3f9a2   text, tabs/newlines stripped, 120 chars max
 
 `3f9a2` is a random per-visitor id so you can tell senders apart. One field in,
 one field out: the smallest thing TouchDesigner can parse without a JSON library.
-
-## TouchDesigner side
-
-In the websocket DAT's `onWebSocketMessage` callback, add a CHOP DAT named `in`
-in **Channel** mode with channels `num`, `txt`, `uid`:
-
-```python
-def onWebSocketMessage(clientIndex, message, details):
-    parts = str(details.payload).strip().split("\t")
-    if len(parts) < 2:
-        return
-    kind, value = parts[0], parts[1]
-    if kind == "num":
-        n = float(value)
-        op("in").chan["num"].value = n
-        op("in").chan["uid"].value = float(parts[2]) if len(parts) > 2 else 0
-    else:
-        op("in").chan["txt"].val = value
-```
-
-If `payload` arrives as bytes, wrap it: `str(details.payload, "utf-8", "ignore")`.
-If your CHOP type is read-only, use a Constant or Math CHOP, or skip the CHOP
-entirely and set parameters directly with `op("mycomp").par.value = n`.
-
-Now wire `in`'s `num` channel into whatever you animate — audio-reactivity,
-camera params, a lookup texture, trigger thresholds. `op("in").chan["txt"]` as a
-text channel works for LED-matrix / typography output.
-
-TouchPlayer handles this fine as long as the DAT is saved in the `.toe`.
 
 ## Guardrails
 
@@ -121,10 +126,16 @@ Clamp again inside TouchDesigner — never trust the client on stage.
 - **Pages page says `blocked: needs a wss tunnel`** — you forgot the `?wss=` or
   the tunnel died. A quick tunnel's hostname changes every restart, so re-copy
   the share link each time.
-- **TD's websocket server gets flaky** — put a ~25-line Node relay in the middle
-  (bridges `ws://127.0.0.1:9001`); TD then reconnects on a timer instead of you
-  restarting it live. Only add this if the direct path actually misbehaves.
+- **Nothing prints in TD but the pill is green** — the Callbacks DAT parameter is
+  pointing at the wrong DAT, or the Text DAT's language isn't Python.
+- **Pill green on laptop, red on phones** — the laptop is on the same machine as
+  TD so it can hit `localhost`; phones need the LAN IP. Share `http://<laptop-ip>:8080`,
+  not `localhost`.
+- **TD's Web Server DAT gets flaky under load** — put a ~25-line Node relay in
+  the middle (bridges `ws://127.0.0.1:9001`) so TD holds one connection instead
+  of hundreds. Only add this if the direct path actually misbehaves in rehearsal.
 
 ## Files
 
 - `index.html` — UI + client. The whole thing.
+- `touchdesigner/callbacks.py` — paste into a Text DAT, point the Web Server DAT at it.
