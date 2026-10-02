@@ -5,34 +5,35 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Send</title>
 <style>
-:root{color-scheme:dark;--bg:#0a0a0c;--fg:#f4f4f7;--dim:#83838f;--line:#24242c;--ok:#3ad98a;--err:#ff5470;--accent:#6c5cff}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%}
-body{margin:0;display:flex;flex-direction:column;gap:18px;align-items:center;justify-content:center;background:var(--bg);color:var(--fg);padding:24px;font:16px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-h1{margin:0;font-size:13px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
-form{display:flex;gap:10px;width:100%;max-width:560px}
-input{flex:1;min-width:0;padding:18px 16px;border-radius:14px;border:1px solid var(--line);background:#131318;color:var(--fg);font:600 24px/1 ui-monospace,SFMono-Regular,Menlo,monospace}
-input::placeholder{color:#4c4c57;font-weight:400}
-input:focus{outline:2px solid var(--accent);outline-offset:-1px}
-button{padding:18px 24px;border:0;border-radius:14px;background:var(--accent);color:#fff;font:700 16px/1 inherit;cursor:pointer}
-button:disabled{opacity:.45}
-button:active:not(:disabled){transform:scale(.97)}
-#pill{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim)}
-#dot{width:8px;height:8px;border-radius:50%;background:var(--err);transition:background .2s}
-#pill.up #dot{background:var(--ok)}
-#log{width:100%;max-width:560px;margin:0;padding:0;list-style:none;font:12px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dim);text-align:center}
-#log li{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#log b{color:var(--fg);font-weight:600}
+:root{color-scheme:dark;--bg:#000;--fg:#fff;--muted:#6f6f6f;--dim:#3a3a3a}
+*{box-sizing:border-box;margin:0;-webkit-appearance:none;appearance:none;-webkit-tap-highlight-color:transparent}
+body{min-height:100dvh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--fg);font:16px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:32px 24px}
+main{width:100%;max-width:520px}
+h1{font-size:12px;font-weight:400;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:28px}
+form{display:flex;gap:12px}
+input{flex:1;min-width:0;background:var(--bg);color:var(--fg);border:1px solid var(--fg);border-radius:0;padding:15px 14px;font:inherit;caret-color:var(--fg)}
+input::placeholder{color:var(--dim)}
+input:focus{outline:1px solid var(--fg);outline-offset:3px}
+button{background:var(--fg);color:var(--bg);border:1px solid var(--fg);border-radius:0;padding:15px 18px;font:inherit;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+button:disabled{background:var(--bg);color:var(--dim);border-color:var(--dim);cursor:not-allowed}
+button:not(:disabled):active{background:var(--bg);color:var(--fg)}
+#pill{margin-top:16px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+#pill.up{color:var(--fg)}
+#log{margin-top:40px;padding-top:16px;border-top:1px solid var(--dim);list-style:none;font-size:13px;color:var(--muted)}
+#log li{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:2px 0}
+#log b{font-weight:400;color:var(--fg)}
 </style>
 </head>
 <body>
-<h1>Send to stage</h1>
+<main>
+<h1>send to stage</h1>
 <form id="f" autocomplete="off">
 <input id="v" placeholder="type anything, or a number" inputmode="text" enterkeyhint="send" maxlength="120" required>
-<button id="send" type="submit">Send</button>
+<button id="send" type="submit">send</button>
 </form>
-<div id="pill"><span id="dot"></span><span id="txt">connecting</span></div>
+<p id="pill"><span id="txt">connecting</span></p>
 <ul id="log"></ul>
+</main>
 <script>
 (() => {
   const q = new URLSearchParams(location.search);
