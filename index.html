@@ -38,7 +38,7 @@ button:active:not(:disabled){transform:scale(.97)}
   const q = new URLSearchParams(location.search);
   const tunnel = q.get('wss');
   const https = location.protocol === 'https:';
-  const scheme = tunnel || (https ? 'wss' : 'ws');
+  const scheme = tunnel || https ? 'wss' : 'ws';
   const host = tunnel || q.get('h') || location.hostname || '127.0.0.1';
   const port = q.get('p') || (tunnel || https ? '443' : '9001');
   const clamp = parseFloat(q.get('min') || '-1000');

@@ -3,32 +3,61 @@
 Audience members type text or a number on their phone; it lands in TouchDesigner in
 real time. No build step, no npm, no framework, no backend.
 
+Live at **https://jj-disaster.github.io/td-send/**
+
 ```
-phone browser  ──ws://──▶  TouchDesigner (websocket DAT, Server :9001)
-      ▲
-      └── index.html served from any static host (laptop, python http.server, Netlify)
+phone browser ──wss://──▶ cloudflared ──▶ localhost:9001 ──▶ TouchDesigner
+      ▲                     (TLS here)      (websocket DAT, Server :9001)
+      └── index.html on GitHub Pages (https)
 ```
 
-Latency on a local network is ~1–5 ms, which is realtime enough for live input.
+Without the tunnel the page talks straight to TouchDesigner over `ws://`, which is
+the fastest path and the one to use when you're on the same network as the
+laptop running TD.
 
-## Run it (2 steps)
+## Show day: GitHub Pages
 
-1. **TouchDesigner** — add a `websocket` DAT (older TD: `webSockets`):
-   - Network → Address `0.0.0.0`, Port `9001`
-   - Mode → **Server**
-   - Allow the macOS firewall prompt.
-2. **Serve the page** on the same machine as the laptop that runs TD:
+GitHub Pages is https-only, and browsers refuse to open a `ws://` connection from
+an https page. TouchDesigner's websocket DAT has no TLS, so something has to
+terminate TLS in the middle. Cloudflare's free tunnel does it in one command:
 
-   ```bash
-   python3 -m http.server 8080
-   ```
+```bash
+cloudflared tunnel --url http://localhost:9001
+```
 
-   Everyone on the venue wifi opens `http://<laptop-ip>:8080`. Find the IP with
-   `ipconfig getifaddr en0`.
+It prints a hostname like `https://something.trycloudflare.com`. Share the page
+with that hostname attached:
 
-The status pill under the input turns green when the connection to TD is live.
-`?h=1.2.3.4` overrides the host, `?p=9001` the port — useful when the page is
-hosted somewhere else.
+```
+https://jj-disaster.github.io/td-send/?wss=something.trycloudflare.com
+```
+
+`?wss=` switches the client to `wss://` on port 443. The hostname is random and
+changes every run, so build the share link after starting the tunnel. Pin guests
+to the venue wifi SSID — cellular traffic will not reach the tunnel reliably.
+
+## Local fast path (no tunnel, lowest latency)
+
+Same page, served over http so `ws://` is allowed:
+
+```bash
+python3 -m http.server 8080
+```
+
+Then share `http://<laptop-ip>:8080`. Find the IP with `ipconfig getifaddr en0`.
+Works with the real TD directly, no cloudflared in the loop.
+
+## TouchDesigner setup
+
+Add a `websocket` DAT (older TD: `webSockets`):
+
+- Network → Address `0.0.0.0`, Port `9001`
+- Mode → **Server**
+- Allow the macOS firewall prompt.
+
+The status pill under the input turns green when the connection to TD is live;
+on an https page with no tunnel it says `blocked: needs a wss tunnel` instead of
+spinning silently.
 
 ## Wire protocol
 
@@ -89,15 +118,12 @@ Clamp again inside TouchDesigner — never trust the client on stage.
   it. Test from a laptop first, then let the phone join.
 - **Works on laptop, not phones** — wrong IP, or the phone is on cellular
   instead of venue wifi. Pin guests to the venue SSID.
-- **Hosting the page on https (GitHub Pages, Netlify)** — browsers block
-  `ws://` from an https page, and TD's websocket server has no TLS. Keep the page
-  on `http://` for the show, or front it with a free Cloudflare Tunnel
-  (`cloudflared tunnel --url http://localhost:8080`) which gives you `wss://`
-  and still terminates TLS outside TD.
+- **Pages page says `blocked: needs a wss tunnel`** — you forgot the `?wss=` or
+  the tunnel died. A quick tunnel's hostname changes every restart, so re-copy
+  the share link each time.
 - **TD's websocket server gets flaky** — put a ~25-line Node relay in the middle
-  (serves the page on the same origin, bridges `ws://127.0.0.1:9001`); TD then
-  reconnects on a timer instead of you restarting it live. Only add this if the
-  direct path actually misbehaves.
+  (bridges `ws://127.0.0.1:9001`); TD then reconnects on a timer instead of you
+  restarting it live. Only add this if the direct path actually misbehaves.
 
 ## Files
 
