@@ -96,19 +96,6 @@ https://jj-disaster.github.io/td-send/?wss=<machine>.<tailnet>.ts.net
 Works because `?wss=` still switches the client to `wss://` on 443. Simpler, but
 every phone still opens its own connection to TouchDesigner.
 
-## Legacy: quick tunnel (hostname changes every run)
-
-Fallback only, because the hostname is random and must be pasted into the share
-link each time:
-
-```bash
-cloudflared tunnel --url http://localhost:9001
-```
-
-```
-https://jj-disaster.github.io/td-send/?wss=something.trycloudflare.com
-```
-
 ## Local fast path (no tunnel, lowest latency)
 
 Serve over http so `ws://` is allowed, no tunnel in the loop:

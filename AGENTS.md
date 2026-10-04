@@ -144,10 +144,12 @@ curl -s -o /dev/null -w "%{http_code}\n" https://mac.tail38622e.ts.net/   # 200
 Then the same bundle test against `wss://mac.tail38622e.ts.net/ws`, run it
 three times. A single failure right after provisioning is not conclusive.
 
-Stop competing routes once the funnel works:
+The funnel is the only public route into TouchDesigner. Confirm nothing else is
+pointing at `:9001` or `:8080`:
 
 ```bash
-pgrep -fl cloudflared     # legacy quick tunnel, safe to kill when funnel is good
+pgrep -fl cloudflared     # should print nothing
+lsof -nP -iTCP:9001 -sTCP:LISTEN
 ```
 
 ## Helping the user set up TouchDesigner
