@@ -240,10 +240,17 @@ html.is-touch .choice:hover:not(.selected):not(:disabled){background:transparent
   // ---- TouchDesigner transport (unchanged wire protocol from previous send page) ----
   const q = new URLSearchParams(location.search);
   const tunnel = q.get('wss');
+  const altHost = q.get('h');
   const https = location.protocol === 'https:';
+  // No explicit target means "speak to the origin that served this page",
+  // which is what server.js provides. Only ?wss=/?h= point somewhere else.
+  const sameOrigin = !tunnel && !altHost;
   const scheme = tunnel || https ? 'wss' : 'ws';
-  const host = tunnel || q.get('h') || location.hostname || '127.0.0.1';
-  const port = q.get('p') || (tunnel || https ? '443' : '9001');
+  const host = tunnel || altHost || location.hostname || '127.0.0.1';
+  const directPort = tunnel || https ? '443' : '9001';
+  const port = q.get('p') || (sameOrigin ? (location.port || (https ? '443' : '80')) : directPort);
+  const wsPath = sameOrigin ? '/ws' : '/';
+  const needsTunnel = https && !tunnel && !sameOrigin;
   const clampMin = parseFloat(q.get('min') || '-1000');
   const clampMax = parseFloat(q.get('max') || '1000');
   const rate = parseFloat(q.get('rate') || '8');
@@ -281,7 +288,7 @@ html.is-touch .choice:hover:not(.selected):not(:disabled){background:transparent
   }
 
   function connect() {
-    try { ws = new WebSocket(scheme + '://' + host + ':' + port); }
+    try { ws = new WebSocket(scheme + '://' + host + ':' + port + wsPath); }
     catch (e) { retry(); return; }
     ws.onopen = () => {
       tries = 0;
@@ -302,8 +309,8 @@ html.is-touch .choice:hover:not(.selected):not(:disabled){background:transparent
     connected = false;
     statusEl.classList.remove('live');
     setChoicesEnabled(false);
-    statusEl.textContent = https && !tunnel ? 'blocked: needs a wss tunnel' : 'reconnecting';
-    if (hint) hint.textContent = https && !tunnel ? 'blocked: needs a wss tunnel' : 'reconnecting…';
+    statusEl.textContent = needsTunnel ? 'blocked: needs a wss tunnel' : 'reconnecting';
+    if (hint) hint.textContent = needsTunnel ? 'blocked: needs a wss tunnel' : 'reconnecting…';
     const wait = Math.min(5000, 250 * Math.pow(2, tries++));
     setTimeout(connect, wait);
   }

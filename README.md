@@ -2,17 +2,18 @@
 
 Audience members tap through a 3-step menu on their phone; each choice lands
 in TouchDesigner in real time. UI transported from Figma Make
-`Animated Section Menu.make`. No build step, no npm, no framework, no backend.
+`Animated Section Menu.make`. No build step, no framework. The page itself is a
+single file; the optional relay adds one npm dependency.
 
 Live at **https://jj-disaster.github.io/td-send/**
 
 ```
-phone browser ──wss://──▶ cloudflared ──▶ localhost:9001 ──▶ TouchDesigner
-      ▲                     (TLS here)      (Web Server DAT :9001)
-      └── index.html on GitHub Pages (https)
+phone browser ──wss://──▶ relay (server.js, TLS via funnel/tunnel) ──▶ localhost:9001 ──▶ TD
+                                    ▲ one upstream socket               ▲ (Web Server DAT :9001)
+                                    └── index.html served from same origin
 ```
 
-Without the tunnel the page talks straight to TouchDesigner over `ws://`, which is
+Without any tunnel the page talks straight to TouchDesigner over `ws://`, which is
 the fastest path and the one to use when you're on the same network as the
 laptop running TD.
 
@@ -32,38 +33,78 @@ visits). Nothing is sent until `SEND` on page 3. Arrows, ←/→ keys,
 All controls disable while offline; the status line shows
 `live / reconnecting / blocked: needs a wss tunnel`.
 
-## Show day: GitHub Pages
+## Show day: the relay + a stable hostname
 
-GitHub Pages is https-only, and browsers refuse to open a `ws://` connection from
-an https page. The Web Server DAT can do TLS, but not with a certificate phones
-trust, so something has to terminate TLS in the middle. Cloudflare's free tunnel
-does it in one command:
+`server.js` serves the page **and** terminates the phone WebSockets on one port,
+then holds a single upstream socket to TouchDesigner. Three things fall out of
+that:
+
+- TD sees **one** connection no matter how many phones are live.
+- Served from its own origin, the page needs **no `?wss=` parameter**.
+- One port is all a reverse proxy needs to expose, so the public link can be a
+  bare, permanent URL.
+
+```bash
+npm install
+node server.js          # http://<laptop-ip>:8080
+```
+
+### Stable link, no domain to buy: Tailscale Funnel
+
+Cloudflare's *named* tunnel needs "a domain on Cloudflare (required to publish
+applications)". Tailscale Funnel hands you a predictable hostname instead
+(`<machine>.<tailnet>.ts.net`) on any plan, so the link survives restarts:
+
+```bash
+brew install tailscale
+tailscale up             # browser login, once
+tailscale funnel 8080    # prints your permanent https URL
+node server.js
+```
+
+Share the printed hostname with nothing appended — no `?wss=`. The certificate
+is provisioned automatically. Restarting TD, the relay, or the laptop does not
+change the URL; only `tailscale funnel reset` does.
+
+Note: Funnel only listens on 443/8443/10000 and proxies to `127.0.0.1`, which is
+why the relay binds locally. Also, Funnel strips query parameters from the
+WebSocket URL — harmless here, because the page sends none.
+
+## Alternative: keep Pages, point it at a stable tunnel
+
+Skip the relay and give the TD socket a stable host instead. Page stays on Pages:
+
+```
+https://jj-disaster.github.io/td-send/?wss=<machine>.<tailnet>.ts.net
+```
+
+Works because `?wss=` still switches the client to `wss://` on 443. Simpler, but
+every phone still opens its own connection to TouchDesigner.
+
+## Legacy: quick tunnel (hostname changes every run)
+
+Fallback only, because the hostname is random and must be pasted into the share
+link each time:
 
 ```bash
 cloudflared tunnel --url http://localhost:9001
 ```
 
-It prints a hostname like `https://something.trycloudflare.com`. Share the page
-with that hostname attached:
-
 ```
 https://jj-disaster.github.io/td-send/?wss=something.trycloudflare.com
 ```
 
-`?wss=` switches the client to `wss://` on port 443. The hostname is random and
-changes every run, so build the share link after starting the tunnel. Pin guests
-to the venue wifi SSID — cellular traffic will not reach the tunnel reliably.
-
 ## Local fast path (no tunnel, lowest latency)
 
-Same page, served over http so `ws://` is allowed:
+Serve over http so `ws://` is allowed, no tunnel in the loop:
 
 ```bash
-python3 -m http.server 8080
+node server.js           # or: python3 -m http.server 8080
 ```
 
 Then share `http://<laptop-ip>:8080`. Find the IP with `ipconfig getifaddr en0`.
-Works with the real TD directly, no cloudflared in the loop.
+If you use `python3 -m http.server`, add `?wss=`-free routing with
+`?h=<laptop-ip>&p=9001`, or run the relay so the page finds `/ws` itself.
 
 ## TouchDesigner setup
 
@@ -149,13 +190,20 @@ Clamp again inside TouchDesigner — never trust the client on stage.
 - **Pill green on laptop, red on phones** — the laptop is on the same machine as
   TD so it can hit `localhost`; phones need the LAN IP. Share `http://<laptop-ip>:8080`,
   not `localhost`.
-- **TD's Web Server DAT gets flaky under load** — put a ~25-line Node relay in
-  the middle (bridges `ws://127.0.0.1:9001`) so TD holds one connection instead
-  of hundreds. Only add this if the direct path actually misbehaves in rehearsal.
+- **TD's Web Server DAT gets flaky under load** — this is what `server.js` is for.
+  It bridges `ws://127.0.0.1:9001` so TD holds one connection instead of hundreds,
+  and it buffers up to 16 frames per phone while TD restarts instead of dropping
+  them.
+- **Link changed after a restart** — a quick tunnel hostname. Run
+  `tailscale funnel status` and re-open your permanent URL, or re-copy the
+  `?wss=` hostname from the tunnel output.
 
 ## Files
 
 - `index.html` — UI + client. The whole thing (single file, Figma design inlined).
+- `server.js` — optional single-origin relay: serves the page, terminates phone
+  sockets, keeps one upstream connection to TD. `npm install && node server.js`.
+- `package.json` — declares the single dependency (`ws`).
 - `DESIGN.md` — design language for the page. Read before changing the UI.
 - `Animated Section Menu.make` — original Figma Make source (code in `make_repos/*.zip`, design in `canvas.fig`).
 - `touchdesigner/callbacks.py` — paste into a Text DAT, point the Web Server DAT at it.

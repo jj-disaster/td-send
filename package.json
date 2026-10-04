@@ -1,0 +1,13 @@
+{
+  "name": "td-send-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Single-origin HTTP + WebSocket relay into TouchDesigner",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
