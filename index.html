@@ -274,13 +274,7 @@ html.is-touch .choice:hover:not(.selected):not(:disabled){background:transparent
     while (log.children.length > 3) log.lastChild.remove();
   };
 
-  const label = (kind, value) => {
-    if (kind === 'num') {
-      const n = Math.min(clampMax, Math.max(clampMin, parseFloat(value)));
-      return 'num\t' + (Number.isFinite(n) ? n : 0);
-    }
-    return 'txt\t' + String(value).replace(/[\t\r\n]+/g, ' ').slice(0, 120);
-  };
+  const clampNum = (v) => Math.min(clampMax, Math.max(clampMin, parseFloat(v)));
 
   function setChoicesEnabled(on) {
     document.querySelectorAll('.choice').forEach(b => { b.disabled = !on; });
@@ -316,25 +310,28 @@ html.is-touch .choice:hover:not(.selected):not(:disabled){background:transparent
   }
 
   function write(line) {
-    if (ws && ws.readyState === 1) ws.send(line + '\t' + uid);
+    if (ws && ws.readyState === 1) ws.send(line);
     else if (queue.length < 16) queue.push(line);
   }
 
-  function send(raw) {
+  function takeToken() {
     const now = performance.now();
     tokens = Math.min(burst, tokens + ((now - last) / 1000) * rate);
     last = now;
     if (tokens < 1) return false;
     tokens -= 1;
-    const t = String(raw).trim();
-    if (!t) return false;
-    const n = Number(t);
-    const isNum = /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t) && Number.isFinite(n);
-    const line = label(isNum ? 'num' : 'txt', t);
-    write(line);
-    const display = isNum ? (Number(n).toFixed(3).replace(/\.?0+$/, '') || '0') : t;
-    show(isNum ? 'num' : 'txt', display);
     return true;
+  }
+
+  // One audience member = ONE frame: bundle<TAB>value=7;action=FOLLOW;time=STILL;uid=ab12c
+  const pack = (v) => String(v).replace(/[%;=,\s]/g, (c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0'));
+
+  function bundle() {
+    const fields = ['value=' + clampNum(selectVal)];
+    if (selAction) fields.push('action=' + pack(selAction));
+    if (selTime) fields.push('time=' + pack(selTime));
+    fields.push('uid=' + uid);
+    return 'bundle\t' + fields.join(';');
   }
 
   // ---- Animated Section Menu (from Figma Make "Animated Section Menu.make") ----
@@ -475,16 +472,12 @@ html.is-touch .choice:hover:not(.selected):not(:disabled){background:transparent
       sendBtn.textContent = 'SEND';
       sendBtn.disabled = !connected;
       sendBtn.addEventListener('click', () => {
-        const frames = [String(selectVal)];
-        if (selAction) frames.push(selAction);
-        if (selTime) frames.push(selTime);
-        let ok = false;
-        frames.forEach(f => { if (send(f)) ok = true; });
-        if (ok) {
-          sendBtn.classList.add('sent');
-          sendBtn.textContent = 'SENT';
-          setTimeout(() => { sendBtn.classList.remove('sent'); sendBtn.textContent = 'SEND'; }, 900);
-        }
+        if (!takeToken()) return;
+        write(bundle());
+        show('bundle', '[ ' + selectVal + ' ] ' + [selAction, selTime].filter(Boolean).join(' '));
+        sendBtn.classList.add('sent');
+        sendBtn.textContent = 'SENT';
+        setTimeout(() => { sendBtn.classList.remove('sent'); sendBtn.textContent = 'SEND'; }, 900);
       });
       panel.append(sendBtn);
     }
@@ -496,7 +489,7 @@ html.is-touch .choice:hover:not(.selected):not(:disabled){background:transparent
     if (!connected) return null;
     if (activeIndex === 0) return 'slide to choose a number';
     if (activeIndex === 1) return 'tap to select an action';
-    return 'tap to select time · send transmits all three';
+    return 'tap to select time · send transmits one message';
   }
 
   function fitTitles() {

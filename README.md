@@ -62,6 +62,21 @@ tailscale funnel 8080    # prints your permanent https URL
 node server.js
 ```
 
+On a Mac without the Tailscale app, `brew` only gives you the CLI, and the
+daemon wants a socket path you can write to. Start it once per login:
+
+```bash
+tailscaled --tun=userspace-networking \
+  --socket=$HOME/.local/share/tailscale/tailscaled.sock \
+  --state=$HOME/.local/share/tailscale/tailscaled.state --port=0 &
+
+tailscale --socket=$HOME/.local/share/tailscale/tailscaled.sock up
+tailscale --socket=$HOME/.local/share/tailscale/tailscaled.sock funnel 8080
+```
+
+Add `--socket=...` to every later command. State persists in that folder, so
+this is only needed after a reboot.
+
 Share the printed hostname with nothing appended — no `?wss=`. The certificate
 is provisioned automatically. Restarting TD, the relay, or the laptop does not
 change the URL; only `tailscale funnel reset` does.
@@ -154,15 +169,36 @@ untrusted wifi, the free Cloudflare tunnel is less setup.
 
 ## Wire protocol
 
-One text frame per send, tab separated, newline terminated:
+One audience member = **one** text frame. Three taps (number, action, time)
+travel together as a single labeled string:
 
 ```
-num\t0.82\t3f9a2      number, clamped
-txt\thello world\t3f9a2   text, tabs/newlines stripped, 120 chars max
+bundle<TAB>value=7;action=FOLLOW;time=STILL;uid=ab12c
 ```
 
-`3f9a2` is a random per-visitor id so you can tell senders apart. One field in,
-one field out: the smallest thing TouchDesigner can parse without a JSON library.
+- `value` — slider choice, clamped to `?min=`/`?max=`
+- `action` — page 2 choice: `FOLLOW` / `COMPLETE` / `RESIST`
+- `time` — page 3 choice: `STILL` / `REPEAT` / `MOVE`
+- `uid` — random 5-char per-visitor id, so senders can be told apart
+
+Fields are `;`-separated `key=value` pairs. Anything user-supplied is
+percent-escaped for `;` `=` `%` `,` and whitespace, so labels can never break
+the parse. `action` and `time` are optional; a bundle with only a number still
+parses.
+
+The callback turns it into:
+
+| Where | What |
+| --- | --- |
+| CHOP `in` → channel `value` | the number, as a float |
+| CHOP `in` → channel `uid` | `crc32(uid) % 1000000` — stable per visitor, for colouring visuals |
+| Text DAT `lastmsg` | readable summary, e.g. `7 FOLLOW STILL` |
+
+`lastmsg` and the CHOP channels are all optional; the callback prints to the TD
+console either way and never raises if they're missing. Pre-create the `value`
+and `uid` channels in the CHOP to receive numbers.
+
+Older `num`/`txt` frames are ignored, not misread.
 
 ## Guardrails
 
