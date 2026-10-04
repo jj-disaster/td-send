@@ -1,7 +1,8 @@
-# Send → TouchDesigner
+# Send → TouchDesigner (Alter / Index)
 
-Audience members type text or a number on their phone; it lands in TouchDesigner in
-real time. No build step, no npm, no framework, no backend.
+Audience members tap through a 3-step menu on their phone; each choice lands
+in TouchDesigner in real time. UI transported from Figma Make
+`Animated Section Menu.make`. No build step, no npm, no framework, no backend.
 
 Live at **https://jj-disaster.github.io/td-send/**
 
@@ -14,6 +15,22 @@ phone browser ──wss://──▶ cloudflared ──▶ localhost:9001 ──�
 Without the tunnel the page talks straight to TouchDesigner over `ws://`, which is
 the fastest path and the one to use when you're on the same network as the
 laptop running TD.
+
+## UI
+
+Three pages, arrows on both sides of the header:
+
+- `01 WHICH ONE?` — slider `01–50` (`[ 1 ]` readout), selects the number
+- `02 ACTION` — `FOLLOW / COMPLETE / RESIST`, tap to select (highlighted)
+- `03 TIME` — `STILL / REPEAT / MOVE` + `SEND` → transmits the full path
+  (slider as `num`, action + time as `txt`, one frame each)
+
+Tapping a choice only selects it (persistent highlight, kept across page
+visits). Nothing is sent until `SEND` on page 3. Arrows, ←/→ keys,
+`1/2/3` shortcuts, and swipe navigate with a 720ms slide/blur transition
+(swipes starting on controls are ignored so slider drags never flip pages).
+All controls disable while offline; the status line shows
+`live / reconnecting / blocked: needs a wss tunnel`.
 
 ## Show day: GitHub Pages
 
@@ -138,6 +155,7 @@ Clamp again inside TouchDesigner — never trust the client on stage.
 
 ## Files
 
-- `index.html` — UI + client. The whole thing.
+- `index.html` — UI + client. The whole thing (single file, Figma design inlined).
 - `DESIGN.md` — design language for the page. Read before changing the UI.
+- `Animated Section Menu.make` — original Figma Make source (code in `make_repos/*.zip`, design in `canvas.fig`).
 - `touchdesigner/callbacks.py` — paste into a Text DAT, point the Web Server DAT at it.

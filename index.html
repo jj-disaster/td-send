@@ -3,60 +3,266 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Send</title>
+<title>Alter / Index — Send to Stage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{color-scheme:dark;--bg:#000;--fg:#fff;--muted:#6f6f6f;--dim:#3a3a3a}
-*{box-sizing:border-box;margin:0;-webkit-appearance:none;appearance:none;-webkit-tap-highlight-color:transparent}
-body{min-height:100dvh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--fg);font:16px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:32px 24px}
-main{width:100%;max-width:520px}
-h1{font-size:12px;font-weight:400;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:28px}
-form{display:flex;gap:12px}
-input{flex:1;min-width:0;background:var(--bg);color:var(--fg);border:1px solid var(--fg);border-radius:0;padding:15px 14px;font:inherit;caret-color:var(--fg)}
-input::placeholder{color:var(--muted)}
-input:focus{outline:1px solid var(--fg);outline-offset:3px}
-button{background:var(--fg);color:var(--bg);border:1px solid var(--fg);border-radius:0;padding:15px 18px;font:inherit;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
-button:disabled{background:var(--bg);color:var(--muted);border-color:var(--dim);cursor:not-allowed}
-button:not(:disabled):active{background:var(--bg);color:var(--fg)}
-#pill{margin-top:16px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-#pill.up{color:var(--fg)}
-#log{margin-top:40px;padding-top:16px;border-top:1px solid var(--dim);list-style:none;font-size:13px;color:var(--muted)}
-#log li{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:2px 0}
-#log b{font-weight:400;color:var(--fg)}
+:root{
+  color:#090909;
+  background:#f5f5f2;
+  font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-synthesis:none;
+  text-rendering:geometricPrecision;
+  --ink:#090909;
+  --paper:#f5f5f2;
+  --muted:#555550;
+  --faint:#444440;
+  --hair:#090909;
+  --soft:#a7a7a2;
+  --track:#c4c4bf;
+}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  min-width:320px;
+  height:100dvh;
+  overflow:hidden;
+  background:var(--paper);
+  color:var(--ink);
+  font:400 16px/1.5 "IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  display:flex;
+  justify-content:center;
+}
+button,a{color:inherit;font:inherit}
+button:focus-visible,a:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+
+/* ---- shell (from Figma Make, flattened to single file) ---- */
+.page-shell{
+  width:min(100%,320px);
+  height:100dvh;
+  max-height:100dvh;
+  overflow:hidden;
+  margin:0 auto;
+  padding:14px 18px 12px;
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr);
+  background:var(--paper);
+}
+.topbar{
+  padding-bottom:10px;
+  font-size:10px;
+  letter-spacing:.08em;
+  text-align:center;
+}
+.topbar-note{margin:0;min-width:0;color:var(--muted);text-align:center;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar-note.live{color:var(--ink)}
+
+.viewer{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:96px minmax(0,1fr);min-height:0;padding:0}
+.section-nav{
+  display:grid;
+  grid-template-columns:40px minmax(0,1fr) 40px;
+  align-items:center;
+}
+.arrow-button{
+  width:36px;height:36px;
+  display:grid;place-items:center;
+  padding:0;
+  border:1px solid var(--ink);
+  border-radius:50%;
+  background:transparent;
+  cursor:pointer;
+  appearance:none;-webkit-appearance:none;
+  transition:color 180ms ease,background-color 180ms ease,transform 180ms ease;
+}
+.arrow-button:hover:not(:disabled){color:var(--paper);background:var(--ink);transform:scale(1.04)}
+.arrow-button:active:not(:disabled){transform:scale(.96)}
+.arrow-button:disabled{cursor:default;opacity:.35}
+.arrow{position:relative;width:16px;height:1px;background:currentColor}
+.arrow::before{
+  position:absolute;top:-4px;width:9px;height:9px;
+  border-top:1px solid currentColor;border-left:1px solid currentColor;
+  content:"";
+}
+.arrow-left::before{left:0;transform:rotate(-45deg)}
+.arrow-right::before{right:0;transform:rotate(135deg)}
+
+.title-window{position:relative;height:100%;min-width:0;overflow:hidden}
+.section-title{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  gap:12px;
+  will-change:transform,opacity;
+}
+.section-title h1{
+  margin:0;
+  min-width:0;
+  font-family:"Archivo",Arial,sans-serif;
+  font-weight:600;
+  font-size:clamp(15px,4.6vw,24px);
+  line-height:.9;
+  letter-spacing:-.03em;
+}
+.section-number{font-size:9px}
+.title-out-right{animation:title-out-right 720ms cubic-bezier(.76,0,.24,1) forwards}
+.title-in-right{animation:title-in-right 720ms cubic-bezier(.76,0,.24,1) forwards}
+.title-out-left{animation:title-out-left 720ms cubic-bezier(.76,0,.24,1) forwards}
+.title-in-left{animation:title-in-left 720ms cubic-bezier(.76,0,.24,1) forwards}
+
+.content-window{position:relative;min-height:0;overflow:hidden}
+.content-card{
+  position:absolute;inset:0;
+  display:grid;
+  grid-template-columns:1fr;
+  align-content:center;
+  justify-items:center;
+  gap:14px;
+  padding:16px 0 8px;
+  text-align:center;
+  overflow:hidden;
+  will-change:opacity,filter,transform;
+}
+.card-intro{display:grid;justify-items:center;text-align:center}
+.card-kicker,.choice-prompt{margin:0;font-size:10px;letter-spacing:.08em}
+.card-kicker{
+  width:fit-content;margin:0 auto 12px;padding-bottom:0;
+  color:var(--muted);
+  text-align:center;
+}
+
+.choice-panel{
+  width:100%;min-height:0;padding:12px 0;
+  display:flex;flex-direction:column;
+  color:var(--ink);background:transparent;border:0;
+  text-align:center;
+}
+.choice-prompt{padding-bottom:10px;text-align:center}
+.choices{flex:1;display:flex;flex-direction:column;justify-content:center}
+.choice{
+  display:flex;justify-content:center;align-items:baseline;
+  gap:10px;
+  width:100%;
+  min-height:48px;
+  padding:10px 4px;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  font-size:13px;letter-spacing:.04em;text-align:center;
+  cursor:pointer;
+  appearance:none;-webkit-appearance:none;
+}
+.choice:hover:not(:disabled){background:var(--ink);color:var(--paper)}
+.choice:active:not(:disabled){background:var(--ink);color:var(--paper)}
+.choice:disabled{cursor:not-allowed;color:var(--muted)}
+.choice.selected{background:var(--ink);color:var(--paper)}
+/* select-slider card (page 01, from reference 01 / SELECT card) */
+.select-ui{flex:1;display:flex;flex-direction:column;justify-content:center;gap:8px;padding:6px 0 2px}
+.slider-val{font-size:15px;letter-spacing:.14em}
+.slider-row{display:flex;align-items:center;gap:12px}
+.slider-row span{font-size:9px;color:var(--muted);letter-spacing:.08em;white-space:nowrap}
+.slider-row input{flex:1;min-width:0}
+input[type="range"]{
+  width:100%;margin:2px 0 0;padding:0;
+  background:transparent;border:0;
+  appearance:none;-webkit-appearance:none;
+  height:28px;cursor:pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track{height:1px;background:var(--ink)}
+input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:16px;height:16px;margin-top:-8px;
+  background:var(--ink);border:0;border-radius:0;
+}
+input[type="range"]::-moz-range-track{height:1px;background:var(--ink)}
+input[type="range"]::-moz-range-thumb{width:16px;height:16px;background:var(--ink);border:0;border-radius:0}
+input[type="range"]:disabled{opacity:.35;cursor:not-allowed}
+input[type="range"]:focus-visible{outline:2px solid var(--ink);outline-offset:6px}
+.send-btn{
+  width:100%;min-height:52px;margin-top:10px;
+  background:var(--ink);color:var(--paper);
+  border:0;
+  font-size:13px;letter-spacing:.14em;text-transform:uppercase;
+  cursor:pointer;appearance:none;-webkit-appearance:none;border-radius:0;
+}
+.send-btn:active:not(:disabled){transform:scale(.98)}
+.send-btn:disabled{cursor:not-allowed;opacity:.35}
+.send-btn.sent{opacity:.6}
+@keyframes title-out-right{to{opacity:0;transform:translateX(13%)}}
+@keyframes title-in-right{from{opacity:0;transform:translateX(-13%)}}
+@keyframes title-out-left{to{opacity:0;transform:translateX(-13%)}}
+@keyframes title-in-left{from{opacity:0;transform:translateX(13%)}}
+@keyframes content-out{0%{opacity:1;filter:blur(0);transform:translateY(0)}55%,100%{opacity:0;filter:blur(5px);transform:translateY(7px)}}
+@keyframes content-in{0%,38%{opacity:0;filter:blur(5px);transform:translateY(-7px)}100%{opacity:1;filter:blur(0);transform:translateY(0)}}
+.content-out{animation:content-out 720ms cubic-bezier(.65,0,.35,1) forwards}
+.content-in{animation:content-in 720ms cubic-bezier(.65,0,.35,1) forwards}
+
+@media (max-width:520px){
+  .page-shell{padding:12px 14px 10px}
+  .topbar-note{font-size:9px}
+  .viewer{grid-template-rows:84px minmax(0,1fr)}
+  .section-nav{grid-template-columns:36px minmax(0,1fr) 36px}
+  .content-card{gap:12px;padding:12px 0 6px}
+}
+@media (prefers-reduced-motion:reduce){
+  .title-out-right,.title-in-right,.title-out-left,.title-in-left,.content-out,.content-in{animation-duration:1ms}
+  .arrow-button{transition-duration:1ms}
+}
+/* touch devices: no sticky hover — buttons only invert while pressed.
+   (class-driven, not media-query-driven, so it works even where the
+   browser reports hover:hover over a touch emulation layer) */
+@media (hover:none){
+  .arrow-button:hover:not(:disabled){color:inherit;background:transparent;transform:none}
+  .choice:hover:not(.selected):not(:disabled){background:transparent;color:var(--ink)}
+}
+html.is-touch .arrow-button:hover:not(:disabled){color:inherit;background:transparent;transform:none}
+html.is-touch .choice:hover:not(.selected):not(:disabled){background:transparent;color:var(--ink)}
 </style>
 </head>
 <body>
-<main>
-<h1>send to stage</h1>
-<form id="f" autocomplete="off">
-<input id="v" placeholder="type anything, or a number" inputmode="text" enterkeyhint="send" maxlength="120" required>
-<button id="send" type="submit">send</button>
-</form>
-<p id="pill"><span id="txt">connecting</span></p>
-<ul id="log"></ul>
+<main class="page-shell">
+  <header class="topbar">
+    <p class="topbar-note" id="status">connecting</p>
+  </header>
+
+  <section class="viewer" aria-live="polite">
+    <div class="section-nav">
+      <button class="arrow-button" type="button" id="prev" aria-label="Previous section">
+        <span class="arrow arrow-left" aria-hidden="true"></span>
+      </button>
+      <div class="title-window" id="title-window"></div>
+      <button class="arrow-button" type="button" id="next" aria-label="Next section">
+        <span class="arrow arrow-right" aria-hidden="true"></span>
+      </button>
+    </div>
+
+    <div class="content-window" id="content-window"></div>
+  </section>
 </main>
+
 <script>
 (() => {
+  // ---- TouchDesigner transport (unchanged wire protocol from previous send page) ----
   const q = new URLSearchParams(location.search);
   const tunnel = q.get('wss');
   const https = location.protocol === 'https:';
   const scheme = tunnel || https ? 'wss' : 'ws';
   const host = tunnel || q.get('h') || location.hostname || '127.0.0.1';
   const port = q.get('p') || (tunnel || https ? '443' : '9001');
-  const clamp = parseFloat(q.get('min') || '-1000');
+  const clampMin = parseFloat(q.get('min') || '-1000');
   const clampMax = parseFloat(q.get('max') || '1000');
   const rate = parseFloat(q.get('rate') || '8');
   const burst = parseInt(q.get('burst') || '3', 10);
   const uid = Math.random().toString(36).slice(2, 7);
 
-  const pill = document.getElementById('pill');
-  const txt = document.getElementById('txt');
+  const statusEl = document.getElementById('status');
   const log = document.getElementById('log');
-  const field = document.getElementById('v');
-  const btn = document.getElementById('send');
+  const hint = document.getElementById('hint');
 
   let ws, queue = [], tries = 0, tokens = burst, last = 0;
+  let connected = false;
 
   const show = (kind, value) => {
+    if (!log) return;
     const li = document.createElement('li');
     const tag = document.createElement('b');
     tag.textContent = kind;
@@ -67,38 +273,47 @@ button:not(:disabled):active{background:var(--bg);color:var(--fg)}
 
   const label = (kind, value) => {
     if (kind === 'num') {
-      const n = Math.min(clampMax, Math.max(clamp, parseFloat(value)));
+      const n = Math.min(clampMax, Math.max(clampMin, parseFloat(value)));
       return 'num\t' + (Number.isFinite(n) ? n : 0);
     }
     return 'txt\t' + String(value).replace(/[\t\r\n]+/g, ' ').slice(0, 120);
   };
+
+  function setChoicesEnabled(on) {
+    document.querySelectorAll('.choice').forEach(b => { b.disabled = !on; });
+    document.querySelectorAll('.send-btn, input[type="range"]').forEach(el => { el.disabled = !on; });
+  }
 
   function connect() {
     try { ws = new WebSocket(scheme + '://' + host + ':' + port); }
     catch (e) { retry(); return; }
     ws.onopen = () => {
       tries = 0;
-      pill.classList.add('up');
-      txt.textContent = 'live';
-      btn.disabled = false;
+      connected = true;
+      statusEl.textContent = 'live';
+      statusEl.classList.add('live');
+      if (hint) hint.textContent = currentHint() || 'tap a choice to send to stage';
+      setChoicesEnabled(true);
       const pending = queue;
       queue = [];
       pending.forEach(write);
     };
     ws.onclose = retry;
-    ws.onerror = () => ws.close();
+    ws.onerror = () => { try { ws.close(); } catch (_) {} };
   }
 
   function retry() {
-    pill.classList.remove('up');
-    btn.disabled = true;
-    txt.textContent = https && !tunnel ? 'blocked: needs a wss tunnel' : 'reconnecting';
+    connected = false;
+    statusEl.classList.remove('live');
+    setChoicesEnabled(false);
+    statusEl.textContent = https && !tunnel ? 'blocked: needs a wss tunnel' : 'reconnecting';
+    if (hint) hint.textContent = https && !tunnel ? 'blocked: needs a wss tunnel' : 'reconnecting…';
     const wait = Math.min(5000, 250 * Math.pow(2, tries++));
     setTimeout(connect, wait);
   }
 
   function write(line) {
-    if (ws.readyState === 1) ws.send(line + '\t' + uid);
+    if (ws && ws.readyState === 1) ws.send(line + '\t' + uid);
     else if (queue.length < 16) queue.push(line);
   }
 
@@ -106,25 +321,278 @@ button:not(:disabled):active{background:var(--bg);color:var(--fg)}
     const now = performance.now();
     tokens = Math.min(burst, tokens + ((now - last) / 1000) * rate);
     last = now;
-    if (tokens < 1) return;
+    if (tokens < 1) return false;
     tokens -= 1;
-    const t = raw.trim();
-    if (!t) return;
+    const t = String(raw).trim();
+    if (!t) return false;
     const n = Number(t);
     const isNum = /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t) && Number.isFinite(n);
     const line = label(isNum ? 'num' : 'txt', t);
     write(line);
-    show(isNum ? 'num' : 'txt', isNum ? Number(n).toFixed(3).replace(/\.?0+$/, '') || '0' : t);
+    const display = isNum ? (Number(n).toFixed(3).replace(/\.?0+$/, '') || '0') : t;
+    show(isNum ? 'num' : 'txt', display);
+    return true;
   }
 
-  document.getElementById('f').addEventListener('submit', (e) => {
-    e.preventDefault();
-    send(field.value);
-    field.value = '';
-    field.focus();
-  });
+  // ---- Animated Section Menu (from Figma Make "Animated Section Menu.make") ----
+  const pages = [
+    {
+      number: "01",
+      label: "Which one?",
+      sub: "SELECT",
+      eyebrow: "Begin with an instinct",
+      title: "Choose one.",
+      copy: "No answer is neutral. Make a selection and let the sequence unfold from there.",
+      prompt: "Choose one.",
+      options: ["27", "38", "11"],
+      footer: "A SINGLE IMAGE / A SINGLE DECISION",
+    },
+    {
+      number: "02",
+      label: "What should I do?",
+      sub: "TRY",
+      eyebrow: "Give the body a direction",
+      title: "What should the body do?",
+      copy: "An instruction becomes a posture. Decide how the subject meets the world around it.",
+      prompt: "WHAT SHOULD I DO?",
+      options: ["FOLLOW", "COMPLETE", "RESIST"],
+      footer: "BEHAVIOUR / RESPONSE / CONSEQUENCE",
+    },
+    {
+      number: "03",
+      label: "What happens to it?",
+      sub: "TIME",
+      eyebrow: "Determine what follows",
+      title: "How should it continue?",
+      copy: "Time changes the meaning of every action. Choose the rhythm that carries it forward.",
+      prompt: "How should it continue?",
+      options: ["STILL", "REPEAT", "MOVE"],
+      footer: "DURATION / REPETITION / CHANGE",
+    },
+  ];
 
-  btn.disabled = true;
+  let activeIndex = 0;
+  let transition = null;
+  let timer = null;
+  let selectVal = 1;
+  const SELECT_MIN = 1, SELECT_MAX = 50;
+  let selAction = null, selTime = null;
+
+  const titleWindow = document.getElementById('title-window');
+  const contentWindow = document.getElementById('content-window');
+  const prevBtn = document.getElementById('prev');
+  const nextBtn = document.getElementById('next');
+
+  function titleNode(page, extra) {
+    const d = document.createElement('div');
+    d.className = 'section-title' + (extra ? ' ' + extra : '');
+    const num = document.createElement('span');
+    num.className = 'section-number';
+    num.textContent = page.number;
+    const h = document.createElement('h1');
+    h.textContent = page.label;
+    d.append(num, h);
+    return d;
+  }
+
+  function selectNode(page, extra) {
+    const art = document.createElement('article');
+    art.className = 'content-card' + (extra ? ' ' + extra : '');
+    const intro = document.createElement('div');
+    intro.className = 'card-intro';
+    const kicker = document.createElement('p');
+    kicker.className = 'card-kicker';
+    kicker.textContent = page.number + ' / ' + page.sub;
+    intro.append(kicker);
+
+    const panel = document.createElement('div');
+    panel.className = 'choice-panel';
+    const prompt = document.createElement('p');
+    prompt.className = 'choice-prompt';
+    prompt.textContent = page.prompt;
+
+    const ui = document.createElement('div');
+    ui.className = 'select-ui';
+    const readout = document.createElement('div');
+    readout.className = 'slider-val';
+    readout.textContent = '[ ' + selectVal + ' ]';
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = String(SELECT_MIN);
+    slider.max = String(SELECT_MAX);
+    slider.value = String(selectVal);
+    slider.disabled = !connected;
+    slider.setAttribute('aria-label', 'Choose a number between 1 and 50');
+    slider.addEventListener('input', () => {
+      selectVal = parseInt(slider.value, 10);
+      readout.textContent = '[ ' + selectVal + ' ]';
+    });
+    const scale = document.createElement('div');
+    scale.className = 'slider-row';
+    const lo = document.createElement('span');
+    lo.textContent = '01';
+    const hi = document.createElement('span');
+    hi.textContent = '50';
+    scale.append(lo, slider, hi);
+    ui.append(readout, scale);
+    panel.append(prompt, ui);
+    art.append(intro, panel);
+    return art;
+  }
+
+  function contentNode(page, extra, pageIndex) {
+    if (pageIndex === 0) return selectNode(page, extra);
+    const art = document.createElement('article');
+    art.className = 'content-card' + (extra ? ' ' + extra : '');
+    const intro = document.createElement('div');
+    intro.className = 'card-intro';
+    const kicker = document.createElement('p');
+    kicker.className = 'card-kicker';
+    kicker.textContent = page.number + ' / ' + page.sub;
+    intro.append(kicker);
+
+    const panel = document.createElement('div');
+    panel.className = 'choice-panel';
+    const prompt = document.createElement('p');
+    prompt.className = 'choice-prompt';
+    prompt.textContent = page.prompt;
+    const choices = document.createElement('div');
+    choices.className = 'choices';
+    const getSel = () => (pageIndex === 1 ? selAction : selTime);
+    const setSel = (v) => { if (pageIndex === 1) selAction = v; else selTime = v; };
+    page.options.forEach((opt, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'choice' + (getSel() === opt ? ' selected' : '');
+      b.disabled = !connected;
+      b.dataset.value = opt;
+      const val = document.createElement('span');
+      val.textContent = opt;
+      b.append(val);
+      b.addEventListener('click', () => {
+        setSel(opt);
+        choices.querySelectorAll('.choice').forEach(el => {
+          el.classList.toggle('selected', el.dataset.value === opt);
+        });
+      });
+      choices.appendChild(b);
+    });
+    panel.append(prompt, choices);
+    if (pageIndex === 2) {
+      const sendBtn = document.createElement('button');
+      sendBtn.type = 'button';
+      sendBtn.className = 'send-btn';
+      sendBtn.textContent = 'SEND';
+      sendBtn.disabled = !connected;
+      sendBtn.addEventListener('click', () => {
+        const frames = [String(selectVal)];
+        if (selAction) frames.push(selAction);
+        if (selTime) frames.push(selTime);
+        let ok = false;
+        frames.forEach(f => { if (send(f)) ok = true; });
+        if (ok) {
+          sendBtn.classList.add('sent');
+          sendBtn.textContent = 'SENT';
+          setTimeout(() => { sendBtn.classList.remove('sent'); sendBtn.textContent = 'SEND'; }, 900);
+        }
+      });
+      panel.append(sendBtn);
+    }
+    art.append(intro, panel);
+    return art;
+  }
+
+  function currentHint() {
+    if (!connected) return null;
+    if (activeIndex === 0) return 'slide to choose a number';
+    if (activeIndex === 1) return 'tap to select an action';
+    return 'tap to select time · send transmits all three';
+  }
+
+  function fitTitles() {
+    // shrink-to-fit: whatever label text is set, the header never wraps
+    titleWindow.querySelectorAll('.section-title').forEach(t => {
+      const h = t.querySelector('h1');
+      if (!h) return;
+      h.style.fontSize = '';
+      h.style.whiteSpace = 'nowrap';
+      let size = parseFloat(getComputedStyle(h).fontSize);
+      let guard = 0;
+      while (guard++ < 24 && h.scrollWidth > h.clientWidth + 1 && size > 11) {
+        size -= 1;
+        h.style.fontSize = size + 'px';
+      }
+      if (h.scrollWidth > h.clientWidth + 1) h.style.whiteSpace = '';
+    });
+  }
+
+  function render() {
+    const cur = pages[activeIndex];
+    const out = transition ? pages[transition.from] : cur;
+    const inc = transition ? pages[transition.to] : null;
+    titleWindow.innerHTML = '';
+    contentWindow.innerHTML = '';
+    if (!transition) {
+      titleWindow.appendChild(titleNode(cur, ''));
+      contentWindow.appendChild(contentNode(cur, '', activeIndex));
+    } else {
+      const headerDir = transition.direction === 'right' ? 'left' : 'right';
+      titleWindow.appendChild(titleNode(out, 'title-out-' + headerDir));
+      titleWindow.appendChild(titleNode(inc, 'title-in-' + headerDir));
+      contentWindow.appendChild(contentNode(out, 'content-out', transition.from));
+      contentWindow.appendChild(contentNode(inc, 'content-in', transition.to));
+    }
+    const h = currentHint();
+    if (h && hint) hint.textContent = h;
+    fitTitles();
+    const navDisabled = Boolean(transition);
+    prevBtn.disabled = navDisabled;
+    nextBtn.disabled = navDisabled;
+  }
+
+  function navigate(direction) {
+    if (transition) return;
+    const offset = direction === 'right' ? 1 : -1;
+    const nextIndex = (activeIndex + offset + pages.length) % pages.length;
+    transition = { from: activeIndex, to: nextIndex, direction };
+    render();
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      activeIndex = nextIndex;
+      transition = null;
+      render();
+    }, 720);
+  }
+
+  prevBtn.addEventListener('click', (e) => { e.currentTarget.blur(); navigate('left'); });
+  nextBtn.addEventListener('click', (e) => { e.currentTarget.blur(); navigate('right'); });
+  // any real touch tap marks the session as touch-driven (see CSS guard above)
+  document.addEventListener('touchstart', () => document.documentElement.classList.add('is-touch'), { passive: true });
+  window.addEventListener('resize', fitTitles);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') navigate('left');
+    else if (e.key === 'ArrowRight') navigate('right');
+    else if (e.key >= '1' && e.key <= '3') {
+      const btns = contentWindow.querySelectorAll('.choice');
+      const b = btns[Number(e.key) - 1];
+      if (b && !b.disabled) b.click();
+    }
+  });
+  // basic touch swipe for phones — never hijack drags/taps on controls
+  let touchX = null;
+  contentWindow.addEventListener('touchstart', (e) => {
+    if (e.target.closest('input,button,a')) { touchX = null; return; }
+    touchX = e.touches[0].clientX;
+  }, { passive: true });
+  contentWindow.addEventListener('touchend', (e) => {
+    if (touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    touchX = null;
+    if (Math.abs(dx) > 48) navigate(dx < 0 ? 'right' : 'left');
+  }, { passive: true });
+
+  render();
+  setChoicesEnabled(false);
   connect();
 })();
 </script>
