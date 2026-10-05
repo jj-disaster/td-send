@@ -223,10 +223,13 @@ Clamp again inside TouchDesigner — never trust the client on stage.
 
 ## Files
 
+- `SHOWMACHINE.md` — **start here** if you're setting up the machine that runs
+  the show. Prereqs, TouchDesigner clicks, verification, pre-show checklist.
 - `index.html` — UI + client. The whole thing (single file, Figma design inlined).
 - `server.js` — optional single-origin relay: serves the page, terminates phone
   sockets, keeps one upstream connection to TD. `npm install && node server.js`.
-- `package.json` — declares the single dependency (`ws`).
+- `package.json` / `package-lock.json` — the single dependency (`ws`), pinned.
 - `DESIGN.md` — design language for the page. Read before changing the UI.
+- `AGENTS.md` — operating notes for coding agents on this repo.
 - `Animated Section Menu.make` — original Figma Make source (code in `make_repos/*.zip`, design in `canvas.fig`).
 - `touchdesigner/callbacks.py` — paste into a Text DAT, point the Web Server DAT at it.
